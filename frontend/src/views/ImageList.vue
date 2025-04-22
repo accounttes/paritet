@@ -1,60 +1,81 @@
 <template>
   <div class="image-list">
     <div class="header">
-      <h2>Image Gallery</h2>
-      <router-link to="/upload" class="upload-btn">Upload New Image</router-link>
+      <h2>Список изображений</h2>
+      <router-link to="/upload" class="upload-link">
+        <i class="fas fa-plus"></i> Загрузить новое изображение
+      </router-link>
     </div>
     
-    <div class="images-grid" v-if="images.length">
+    <div v-if="loading" class="loading">
+      <i class="fas fa-spinner fa-spin"></i> Загрузка...
+    </div>
+    
+    <div v-else-if="images.length === 0" class="empty-state">
+      <i class="fas fa-images"></i>
+      <p>Нет загруженных изображений</p>
+    </div>
+    
+    <div v-else class="image-grid">
       <div v-for="image in images" :key="image.id" class="image-card">
-        <img :src="'data:image/jpeg;base64,' + image.image_base64" :alt="image.description">
-        <div class="image-info">
-          <p>{{ image.description }}</p>
-          <button @click="deleteImage(image.id)" class="delete-btn">Delete</button>
+        <div class="image-container">
+          <img :src="image.url" :alt="image.description" class="image" />
+          <div class="image-overlay">
+            <button @click="deleteImage(image.id)" class="delete-btn">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+        <div class="image-description">
+          {{ image.description || 'Без описания' }}
         </div>
       </div>
-    </div>
-    
-    <div v-else class="no-images">
-      <p>No images uploaded yet.</p>
     </div>
   </div>
 </template>
 
 <script>
-import axios from 'axios'
+import axios from 'axios';
 
 export default {
   name: 'ImageList',
   data() {
     return {
-      images: []
-    }
+      images: [],
+      loading: true,
+      error: null
+    };
+  },
+  async created() {
+    await this.fetchImages();
   },
   methods: {
     async fetchImages() {
       try {
-        const response = await axios.get('/images/')
-        this.images = response.data
+        const response = await axios.get('/images/');
+        this.images = response.data;
       } catch (error) {
-        console.error('Error fetching images:', error)
+        console.error('Error fetching images:', error);
+        this.error = 'Ошибка при загрузке изображений';
+      } finally {
+        this.loading = false;
       }
     },
     async deleteImage(id) {
-      if (confirm('Are you sure you want to delete this image?')) {
-        try {
-          await axios.delete(`/images/${id}/`)
-          this.images = this.images.filter(image => image.id !== id)
-        } catch (error) {
-          console.error('Error deleting image:', error)
-        }
+      if (!confirm('Вы уверены, что хотите удалить это изображение?')) {
+        return;
+      }
+      
+      try {
+        await axios.delete(`/images/${id}/`);
+        this.images = this.images.filter(img => img.id !== id);
+      } catch (error) {
+        console.error('Error deleting image:', error);
+        alert('Ошибка при удалении изображения');
       }
     }
-  },
-  mounted() {
-    this.fetchImages()
   }
-}
+};
 </script>
 
 <style scoped>
@@ -66,56 +87,104 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 30px;
 }
 
-.upload-btn {
-  background-color: #42b983;
+.upload-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #4CAF50;
   color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
   text-decoration: none;
+  border-radius: 4px;
+  transition: background-color 0.3s;
 }
 
-.images-grid {
+.upload-link:hover {
+  background-color: #45a049;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+.empty-state i {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.image-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 2rem;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
 }
 
 .image-card {
   border: 1px solid #ddd;
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: transform 0.3s;
 }
 
-.image-card img {
+.image-card:hover {
+  transform: translateY(-5px);
+}
+
+.image-container {
+  position: relative;
+  padding-top: 75%; /* 4:3 Aspect Ratio */
+}
+
+.image {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
-  height: 200px;
+  height: 100%;
   object-fit: cover;
 }
 
-.image-info {
-  padding: 1rem;
+.image-overlay {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.image-card:hover .image-overlay {
+  opacity: 1;
 }
 
 .delete-btn {
-  background-color: #ff4444;
-  color: white;
+  background: rgba(255, 255, 255, 0.8);
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .delete-btn:hover {
-  background-color: #cc0000;
+  background: rgba(255, 255, 255, 1);
 }
 
-.no-images {
-  text-align: center;
-  padding: 2rem;
-  color: #666;
+.image-description {
+  padding: 12px;
+  background: white;
+  border-top: 1px solid #ddd;
 }
 </style> 
